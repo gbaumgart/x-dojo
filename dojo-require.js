@@ -1,7 +1,7 @@
 var path = require('path');
 
 function createDojoConfig(clientRoot,serverRoot,packages){
-    var dojoConfig = {
+    dojoConfig = {
         cwd:__dirname,
         hasCache: {
             "host-node": 1,
@@ -102,8 +102,8 @@ function createDojoConfig(clientRoot,serverRoot,packages){
 }
 
 module.exports = function(clientRoot,serverRoot,packages){
-    global.dojoConfig = createDojoConfig(clientRoot,serverRoot,packages);
+    dojoConfig = createDojoConfig(clientRoot,serverRoot,packages);
     require("./dojo.js");
     return global.dojoRequire;
-}
+};
 

@@ -1,6 +1,6 @@
 define([
     'require'
 ], function (require) {
-    global.dojoRequire = require;
+    dojoRequire = require;
     return require;
 });

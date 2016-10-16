@@ -25,10 +25,6 @@ define(["./has"], function(has){
 			//		Standard AMD plugin interface. See https://github.com/amdjs/amdjs-api/wiki/Loader-Plugins
 			//		for information.
 
-
-
-			console.log('load : '+id);
-
 			if(!require.nodeRequire){
 				throw new Error("Cannot find native require function");
 			}

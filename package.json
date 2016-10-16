@@ -7,6 +7,15 @@
 	},
 	"main": "main",
 	"description": "Dojo core is a powerful, lightweight library that makes common tasks quicker and easier. Animate elements, manipulate the DOM, and query with easy CSS syntax, all without sacrificing performance.",
+	"contributors": [
+		{
+			"name": "Günter Baumgart"
+		}
+	],
+	"repository": {
+		"type": "git",
+		"url": "git://github.com/gbaumgart/x-dojo.git"
+	},
 	"licenses": [
 		 {
 				 "type": "AFLv2.1",
@@ -19,6 +28,5 @@
 	],
 	"bugs": "http://bugs.dojotoolkit.org/",
 	"keywords": ["JavaScript", "Dojo", "Toolkit"],
-	"homepage": "http://dojotoolkit.org/",
-	"dojoBuild": "dojo.profile.js"
+	"homepage": "http://dojotoolkit.org/"
 }

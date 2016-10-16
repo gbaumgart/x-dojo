@@ -103,7 +103,6 @@
 		},
 
 		makeError = function(error, info){
-			///console.error('error : !!!!',[error,info]);
 			return mix(new Error(error), {src:"dojoLoader", info:info});
 		},
 
@@ -760,6 +759,7 @@
 					console.error('module not executed');
 					return module.result;
 				}
+				console.error('cant get : '+a1);
 				throw makeError("undefinedModule", a1);
 			}
 			if(!isArray(a1)){

@@ -27,6 +27,7 @@ define(["./has"], function(has){
 
 
 
+			console.log('load : '+id);
 
 			if(!require.nodeRequire){
 				throw new Error("Cannot find native require function");

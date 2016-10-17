@@ -6,6 +6,7 @@ define([
     function isString(x) {
         return Object.prototype.toString.call(x) === "[object String]"
     }
+
     global.amdRequire = function(mid){
         var first = require( isString(mid)? [mid] : mid,function(){});
         return require(mid);

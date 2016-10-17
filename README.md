@@ -15,11 +15,10 @@ You can also use the original Dojo version. I changed only a few things:
 
 ## Installation
 
-    git clone https://github.com/gbaumgart/x-dojo.git ./dojo
+    git clone https://github.com/gbaumgart/x-dojo.git
 
 ## Usage
 
-When using directly via git: 
 
 ```js
     
@@ -27,7 +26,7 @@ When using directly via git:
     
     //pass absolute path to your client library root in the first arg, and in the second the absolute path to your server
     //side only packages
-    var amdRequire = require('./dojo/dojo-require')(path.resolve('../../Code/client/src/lib/'),path.resolve('.'));
+    var amdRequire = require('./x-dojo/dojo-require')(path.resolve('../../Code/client/src/lib/'),path.resolve('.'));
     
     //at this point:
     // - dojo is loaded with a configuration defined in dojo/dojo-require

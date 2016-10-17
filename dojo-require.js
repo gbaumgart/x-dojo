@@ -28,7 +28,7 @@ function createDojoConfig(clientRoot,serverRoot,packages){
             "debug":true
         },
         trace: 1,
-        async: 1,
+        async: 0,
         baseUrl: '.',
         packages: [
             {
@@ -41,7 +41,7 @@ function createDojoConfig(clientRoot,serverRoot,packages){
             },
             {
                 name: "nxapp",
-                location: serverRoot + path.sep + "nxapp"
+                location: "nxapp"
             },
             {
                 name: "xcf",
@@ -104,6 +104,6 @@ function createDojoConfig(clientRoot,serverRoot,packages){
 module.exports = function(clientRoot,serverRoot,packages){
     dojoConfig = createDojoConfig(clientRoot,serverRoot,packages);
     require("./dojo.js");
-    return global.dojoRequire;
+    return amdRequire;
 };
 

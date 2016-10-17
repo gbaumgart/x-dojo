@@ -103,6 +103,11 @@
 		},
 
 		makeError = function(error, info){
+			/*
+			if(has('host-node')){
+				var e = new Error();
+			}
+			*/
 			return mix(new Error(error), {src:"dojoLoader", info:info});
 		},
 
@@ -756,10 +761,9 @@
 				}
 
 				if(module && !module.executed){
-					console.error('module not executed');
+
 					return module.result;
 				}
-				console.error('cant get : '+a1);
 				throw makeError("undefinedModule", a1);
 			}
 			if(!isArray(a1)){
@@ -937,10 +941,12 @@
 			var pid, pack, midInPackage, mapItem, url, result, isRelative, requestedMid;
 			requestedMid = mid;
 			isRelative = /^\./.test(mid);
+
 			if(/(^\/)|(\:)|(\.js$)/.test(mid) || (isRelative && !referenceModule)){
 				// absolute path or protocol of .js filetype, or relative path but no reference module and therefore relative to page
 				// whatever it is, it's not a module but just a URL of some sort
 				// note: pid===0 indicates the routine is returning an unmodified mid
+
 
 				return makeModuleInfo(0, mid, 0, mid);
 			}else{
@@ -988,6 +994,7 @@
 					return alwaysCreate ? makeModuleInfo(result.pid, result.mid, result.pack, result.url) : modules[mid];
 				}
 			}
+
 			// get here iff the sought-after module does not yet exist; therefore, we need to compute the URL given the
 			// fully resolved (i.e., all relative indicators and package mapping resolved) module id
 
@@ -1060,6 +1067,7 @@
 				}
 				result = {plugin:plugin, mid:mid, req:createRequire(referenceModule), prid:prid};
 			}else{
+
 				result = getModuleInfo(mid, referenceModule);
 			}
 			return modules[result.mid] || (!immediate && (modules[result.mid] = result));

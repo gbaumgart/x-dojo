@@ -764,7 +764,9 @@
 
 					return module.result;
 				}
-				console.error('cant find module : '+a1);
+
+				var error = new Error();
+				console.error('cant find module : '+a1,error.stack);
 				throw makeError("undefinedModule", a1);
 			}
 			if(!isArray(a1)){

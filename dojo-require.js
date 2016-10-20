@@ -1,7 +1,5 @@
 var path = require('path');
 function createDojoConfig(clientRoot,serverRoot,base,packages){
-    console.log('running in '+__dirname);
-    console.log('client root '+clientRoot);
     dojoConfig = {
         cwd:__dirname,
         hasCache: {

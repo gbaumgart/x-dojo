@@ -764,9 +764,8 @@
 
 					return module.result;
 				}
-
 				var error = new Error();
-				console.error('cant find module : '+a1,error.stack);
+				//console.error('cant find module : '+a1,error.stack);
 				throw makeError("undefinedModule", a1);
 			}
 			if(!isArray(a1)){
@@ -1535,6 +1534,7 @@
 			},
 
 			defineModule = function(module, deps, def){
+
 				req.trace("loader-define-module", [module.mid, deps]);
 
 				if(has("dojo-combo-api") && module.plugin && module.plugin.isCombo){

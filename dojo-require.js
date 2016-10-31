@@ -93,6 +93,10 @@ function createDojoConfig(clientRoot,serverRoot,base,packages){
             {
                 name: "xaction",
                 location: clientRoot + path.sep + 'xaction/src'
+            },
+            {
+                name: "xdojo",
+                location: clientRoot + path.sep + 'xdojo'
             }
         ],
         deps: ['dojo/moduleFetcher']

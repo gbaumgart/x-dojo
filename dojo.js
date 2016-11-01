@@ -103,11 +103,6 @@
 		},
 
 		makeError = function(error, info){
-			/*
-			if(has('host-node')){
-				var e = new Error();
-			}
-			*/
 			return mix(new Error(error), {src:"dojoLoader", info:info});
 		},
 
@@ -171,6 +166,37 @@
 		}
 		load(baseUrl + "/_base/configRhino.js");
 		rhinoDojoConfig(defaultConfig, baseUrl, rhinoArgs);
+	}
+
+	has.add("host-webworker", ((typeof WorkerGlobalScope !== 'undefined') && (self instanceof WorkerGlobalScope)));
+	if(has("host-webworker")){
+		mix(defaultConfig.hasCache, {
+			"host-browser": 0,
+			"dom": 0,
+			"dojo-dom-ready-api": 0,
+			"dojo-sniff": 0,
+			"dojo-inject-api": 1,
+			"host-webworker": 1,
+			"dojo-guarantee-console": 0 // console is immutable in FF30+, see https://bugs.dojotoolkit.org/ticket/18100
+		});
+
+		defaultConfig.loaderPatch = {
+			injectUrl: function(url, callback){
+				// TODO:
+				//		This is not async, nor can it be in Webworkers.  It could be made better by passing
+				//		the entire require array into importScripts at.  This way the scripts are loaded in
+				//		async mode; even if the callbacks are ran in sync.  It is not a major issue as webworkers
+				//		tend to be long running where initial startup is not a major factor.
+
+				try{
+					importScripts(url);
+					callback();
+				}catch(e){
+					console.info("failed to load resource (" + url + ")");
+					console.error(e);
+				}
+			}
+		};
 	}
 
 	// userConfig has tests override defaultConfig has tests; do this after the environment detection because
@@ -242,7 +268,7 @@
 			};
 		};
 
-		if(has("dom")){
+		if(has("dom") || has("host-webworker")){
 			// in legacy sync mode, the loader needs a minimal XHR library
 
 			var locationProtocol = location.protocol,
@@ -315,13 +341,15 @@
 	//
 	// loader eval
 	//
-	var eval_ =
+	var eval_ =  has("csp-restrictions") ?
+		// noop eval if there are csp restrictions
+		function(){} :
 		// use the function constructor so our eval is scoped close to (but not in) in the global space with minimal pollution
 		new Function('return eval(arguments[0]);');
 
 	req.eval =
 		function(text, hint){
-			return eval_(text + "\r\n////@ sourceURL=" + hint);
+			return eval_(text + "\r\n//# sourceURL=" + hint);
 		};
 
 	//
@@ -429,7 +457,7 @@
 			// Further, for mid keys, the implied url is computed and the value is entered into that key as well. This allows mapped modules
 			// to retrieve cached items that may have arrived consequent to another namespace.
 			//
-			 = {},
+			= {},
 
 		urlKeyPrefix
 			// the prefix to prepend to a URL key in the cache.
@@ -442,7 +470,7 @@
 			// entered into pendingCacheInsert; modules are then pressed into cache upon (1) AMD define or (2) upon receiving another
 			// independent set of cached modules. (1) is the usual case, and this case allows normalizing mids given in the pending
 			// cache for the local configuration, possibly relocating modules.
-			 = {},
+			= {},
 
 		dojoSniffConfig
 			// map of configuration variables
@@ -454,7 +482,8 @@
 			= 0;
 
 	if(has("dojo-config-api")){
-		var consumePendingCacheInsert = function(referenceModule){
+		var consumePendingCacheInsert = function(referenceModule, clear){
+				clear = clear !== false;
 				var p, item, match, now, m;
 				for(p in pendingCacheInsert){
 					item = pendingCacheInsert[p];
@@ -471,7 +500,9 @@
 				if(now){
 					now(createRequire(referenceModule));
 				}
-				pendingCacheInsert = {};
+				if(clear){
+					pendingCacheInsert = {};
+				}
 			},
 
 			escapeString = function(s){
@@ -584,7 +615,7 @@
 
 				// for each packagePath found in any packagePaths config item, augment the packageConfig
 				// packagePaths is deprecated; remove in 2.0
-				for(baseUrl in config.packagePaths){
+				for(var baseUrl in config.packagePaths){
 					forEach(config.packagePaths[baseUrl], function(packageInfo){
 						var location = baseUrl + "/" + packageInfo;
 						if(isString(packageInfo)){
@@ -626,9 +657,8 @@
 				if(config.cache){
 					consumePendingCacheInsert();
 					pendingCacheInsert = config.cache;
-					if(config.cache["*noref"]){
-						consumePendingCacheInsert();
-					}
+					//inject now all depencies so cache is available for mapped module
+					consumePendingCacheInsert(0, !!config.cache["*noref"]);
 				}
 
 				signal("config", [config, req.rawConfig]);
@@ -759,13 +789,6 @@
 				if(module && module.executed){
 					return module.result;
 				}
-
-				if(module && !module.executed){
-
-					return module.result;
-				}
-				var error = new Error();
-				//console.error('cant find module : '+a1,error.stack);
 				throw makeError("undefinedModule", a1);
 			}
 			if(!isArray(a1)){
@@ -871,7 +894,7 @@
 
 		waiting =
 			// The set of modules upon which the loader is waiting for definition to arrive
-			{},
+		{},
 
 		setRequested = function(module){
 			module.injected = requested;
@@ -903,11 +926,11 @@
 		runMapProg = function(targetMid, map){
 			// search for targetMid in map; return the map item if found; falsy otherwise
 			if(map){
-			for(var i = 0; i < map.length; i++){
-				if(map[i][2].test(targetMid)){
-					return map[i];
+				for(var i = 0; i < map.length; i++){
+					if(map[i][2].test(targetMid)){
+						return map[i];
+					}
 				}
-			}
 			}
 			return 0;
 		},
@@ -937,18 +960,16 @@
 			}
 		},
 
-		getModuleInfo_ = function(mid, referenceModule, packs, modules, baseUrl, mapProgs, pathsMapProg, aliases, alwaysCreate){
+		getModuleInfo_ = function(mid, referenceModule, packs, modules, baseUrl, mapProgs, pathsMapProg, aliases, alwaysCreate, fromPendingCache){
 			// arguments are passed instead of using lexical variables so that this function my be used independent of the loader (e.g., the builder)
 			// alwaysCreate is useful in this case so that getModuleInfo never returns references to real modules owned by the loader
 			var pid, pack, midInPackage, mapItem, url, result, isRelative, requestedMid;
 			requestedMid = mid;
 			isRelative = /^\./.test(mid);
-
 			if(/(^\/)|(\:)|(\.js$)/.test(mid) || (isRelative && !referenceModule)){
 				// absolute path or protocol of .js filetype, or relative path but no reference module and therefore relative to page
 				// whatever it is, it's not a module but just a URL of some sort
 				// note: pid===0 indicates the routine is returning an unmodified mid
-
 
 				return makeModuleInfo(0, mid, 0, mid);
 			}else{
@@ -960,15 +981,17 @@
 				// at this point, mid is an absolute mid
 
 				// map the mid
-				if(referenceModule){
-					mapItem = runMapProg(referenceModule.mid, mapProgs);
+				if(!fromPendingCache && !isRelative && mapProgs.star){
+					mapItem = runMapProg(mid, mapProgs.star[1]);
 				}
-				mapItem = mapItem || mapProgs.star;
-				mapItem = mapItem && runMapProg(mid, mapItem[1]);
+				if(!mapItem && referenceModule){
+					mapItem = runMapProg(referenceModule.mid, mapProgs);
+					mapItem = mapItem && runMapProg(mid, mapItem[1]);
+				}
 
 				if(mapItem){
 					mid = mapItem[1] + mid.substring(mapItem[3]);
-					}
+				}
 
 				match = mid.match(/^([^\/]+)(\/(.+))?$/);
 				pid = match ? match[1] : "";
@@ -996,7 +1019,6 @@
 					return alwaysCreate ? makeModuleInfo(result.pid, result.mid, result.pack, result.url) : modules[mid];
 				}
 			}
-
 			// get here iff the sought-after module does not yet exist; therefore, we need to compute the URL given the
 			// fully resolved (i.e., all relative indicators and package mapping resolved) module id
 
@@ -1012,7 +1034,7 @@
 				url = mid;
 			}
 			// if result is not absolute, add baseUrl
-			if(!(/(^\/)|(\:)/.test(url))){
+			if(!(/(^\/)|(\:)/.test(url)) && url.indexOf('http')===-1){
 				url = baseUrl + url;
 			}
 			url += ".js";
@@ -1020,7 +1042,7 @@
 		},
 
 		getModuleInfo = function(mid, referenceModule, fromPendingCache){
-			return getModuleInfo_(mid, referenceModule, packs, modules, req.baseUrl, fromPendingCache ? [] : mapProgs, fromPendingCache ? [] : pathsMapProg, fromPendingCache ? [] : aliases);
+			return getModuleInfo_(mid, referenceModule, packs, modules, req.baseUrl, mapProgs, pathsMapProg, aliases, undefined, fromPendingCache);
 		},
 
 		resolvePluginResourceId = function(plugin, prid, referenceModule){
@@ -1069,7 +1091,6 @@
 				}
 				result = {plugin:plugin, mid:mid, req:createRequire(referenceModule), prid:prid};
 			}else{
-
 				result = getModuleInfo(mid, referenceModule);
 			}
 			return modules[result.mid] || (!immediate && (modules[result.mid] = result));
@@ -1234,9 +1255,9 @@
 				module.executed = executing;
 				while((arg = deps[i++])){
 					argResult = ((arg === cjsRequireModule) ? createRequire(module) :
-									((arg === cjsExportsModule) ? module.cjs.exports :
-										((arg === cjsModuleModule) ? module.cjs :
-											execModule(arg, strict))));
+						((arg === cjsExportsModule) ? module.cjs.exports :
+							((arg === cjsModuleModule) ? module.cjs :
+								execModule(arg, strict))));
 					if(argResult === abortExec){
 						module.executed = 0;
 						req.trace("loader-exec-module", ["abort", mid]);
@@ -1261,6 +1282,17 @@
 			try{
 				checkCompleteGuard++;
 				proc();
+			}catch(e){
+				// https://bugs.dojotoolkit.org/ticket/16617
+				if(has("host-browser")){
+					if(typeof logError!=='undefined'){
+						logError(e);
+					}
+					throw e;
+				}else{
+					checkCompleteGuard--;
+					//console.error('error loading ',e);
+				}
 			}finally{
 				checkCompleteGuard--;
 			}
@@ -1310,7 +1342,7 @@
 			has.add("dojo-loader-eval-hint-url", 1);
 		}
 
-		var fixupUrl= function(url){
+		var fixupUrl= typeof userConfig.fixupUrl == "function" ? userConfig.fixupUrl : function(url){
 				url += ""; // make sure url is a Javascript string (some paths may be a Java string)
 				return url + (cacheBust ? ((/\?/.test(url) ? "&" : "?") + cacheBust) : "");
 			},
@@ -1327,11 +1359,11 @@
 				}
 
 				var onLoad = function(def){
-						module.result = def;
-						setArrived(module);
-						finishExec(module);
-						checkComplete();
-					};
+					module.result = def;
+					setArrived(module);
+					finishExec(module);
+					checkComplete();
+				};
 
 				if(plugin.load){
 					plugin.load(module.prid, module.req, onLoad);
@@ -1359,7 +1391,7 @@
 			evalModuleText = function(text, module){
 				// see def() for the injectingCachedModule bracket; it simply causes a short, safe circuit
 				if(has("config-stripStrict")){
-					text = text.replace(/"use strict"/g, '');
+					text = text.replace(/(["'])use strict\1/g, '');
 				}
 				injectingCachedModule = 1;
 				if(has("config-dojo-loader-catches")){
@@ -1534,7 +1566,6 @@
 			},
 
 			defineModule = function(module, deps, def){
-
 				req.trace("loader-define-module", [module.mid, deps]);
 
 				if(has("dojo-combo-api") && module.plugin && module.plugin.isCombo){
@@ -1549,8 +1580,8 @@
 
 				var mid = module.mid;
 				if(module.injected === arrived){
-					signal(error, makeError("multipleDefine", module));
-					return module;
+					//signal(error, makeError("multipleDefine", module));
+					//return module;
 				}
 				mix(module, {
 					deps: deps,
@@ -1623,7 +1654,7 @@
 		startTimer = function(){
 			clearTimer();
 			if(req.waitms){
-				timerId = window.setTimeout(function(){
+				timerId = global.setTimeout(function(){
 					clearTimer();
 					signal(error, makeError("timeout", waiting));
 				}, req.waitms);
@@ -1660,7 +1691,11 @@
 			},
 			windowOnLoadListener = domOn(window, "load", "onload", function(){
 				req.pageLoaded = 1;
-				doc.readyState!="complete" && (doc.readyState = "complete");
+				// https://bugs.dojotoolkit.org/ticket/16248
+				try{
+					doc.readyState!="complete" && (doc.readyState = "complete");
+				}catch(e){
+				}
 				windowOnLoadListener();
 			});
 
@@ -1793,8 +1828,8 @@
 			args[2].toString()
 				.replace(/(\/\*([\s\S]*?)\*\/|\/\/(.*)$)/mg, "")
 				.replace(/require\(["']([\w\!\-_\.\/]+)["']\)/g, function(match, dep){
-				args[1].push(dep);
-			});
+					args[1].push(dep);
+				});
 		}
 
 		req.trace("loader-define", args.slice(0, 2));

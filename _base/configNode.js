@@ -77,10 +77,6 @@ exports.config = function(config){
 
 			getText: function(url, sync, onLoad){
 				// TODO: implement async and http/https handling
-
-				if(url.indexOf('logs')!==-1){
-					console.error('load : '+url);
-				}
 				onLoad(fs.readFileSync(url, "utf8"));
 			}
 		}

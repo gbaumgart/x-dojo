@@ -26,6 +26,9 @@ define(["./sniff", "./dom"], function(has, dom){
 	};
 	if(has("webkit")){
 		getComputedStyle = function(/*DomNode*/ node){
+			if(!node){
+				return {};
+			}
 			var s;
 			if(node.nodeType == 1){
 				var dv = node.ownerDocument.defaultView;
@@ -45,50 +48,51 @@ define(["./sniff", "./dom"], function(has, dom){
 		};
 	}else{
 		getComputedStyle = function(node){
-            if(!node){
-                debugger;
-            }
+			if(!node){
+				console.error('getComputedStyle :: invalid node');
+				return node;
+			}
 			return node.nodeType == 1 /* ELEMENT_NODE*/ ?
 				node.ownerDocument.defaultView.getComputedStyle(node, null) : {};
 		};
 	}
 	style.getComputedStyle = getComputedStyle;
 	/*=====
-	style.getComputedStyle = function(node){
-		// summary:
-		//		Returns a "computed style" object.
-		//
-		// description:
-		//		Gets a "computed style" object which can be used to gather
-		//		information about the current state of the rendered node.
-		//
-		//		Note that this may behave differently on different browsers.
-		//		Values may have different formats and value encodings across
-		//		browsers.
-		//
-		//		Note also that this method is expensive.  Wherever possible,
-		//		reuse the returned object.
-		//
-		//		Use the dojo/dom-style.get() method for more consistent (pixelized)
-		//		return values.
-		//
-		// node: DOMNode
-		//		A reference to a DOM node. Does NOT support taking an
-		//		ID string for speed reasons.
-		// example:
-		//	|	require(["dojo/dom-style", "dojo/dom"], function(domStyle, dom){
-		//	|		domStyle.getComputedStyle(dom.byId('foo')).borderWidth;
-		//	|	});
-		//
-		// example:
-		//		Reusing the returned object, avoiding multiple lookups:
-		//	|	require(["dojo/dom-style", "dojo/dom"], function(domStyle, dom){
-		//	|		var cs = domStyle.getComputedStyle(dom.byId("someNode"));
-		//	|		var w = cs.width, h = cs.height;
-		//	|	});
-		return; // CSS2Properties
-	};
-	=====*/
+	 style.getComputedStyle = function(node){
+	 // summary:
+	 //		Returns a "computed style" object.
+	 //
+	 // description:
+	 //		Gets a "computed style" object which can be used to gather
+	 //		information about the current state of the rendered node.
+	 //
+	 //		Note that this may behave differently on different browsers.
+	 //		Values may have different formats and value encodings across
+	 //		browsers.
+	 //
+	 //		Note also that this method is expensive.  Wherever possible,
+	 //		reuse the returned object.
+	 //
+	 //		Use the dojo/dom-style.get() method for more consistent (pixelized)
+	 //		return values.
+	 //
+	 // node: DOMNode
+	 //		A reference to a DOM node. Does NOT support taking an
+	 //		ID string for speed reasons.
+	 // example:
+	 //	|	require(["dojo/dom-style", "dojo/dom"], function(domStyle, dom){
+	 //	|		domStyle.getComputedStyle(dom.byId('foo')).borderWidth;
+	 //	|	});
+	 //
+	 // example:
+	 //		Reusing the returned object, avoiding multiple lookups:
+	 //	|	require(["dojo/dom-style", "dojo/dom"], function(domStyle, dom){
+	 //	|		var cs = domStyle.getComputedStyle(dom.byId("someNode"));
+	 //	|		var w = cs.width, h = cs.height;
+	 //	|	});
+	 return; // CSS2Properties
+	 };
+	 =====*/
 
 	var toPixel;
 	if(!has("ie")){
@@ -125,14 +129,14 @@ define(["./sniff", "./dom"], function(has, dom){
 	}
 	style.toPixelValue = toPixel;
 	/*=====
-	style.toPixelValue = function(node, value){
-		// summary:
-		//		converts style value to pixels on IE or return a numeric value.
-		// node: DOMNode
-		// value: String
-		// returns: Number
-	};
-	=====*/
+	 style.toPixelValue = function(node, value){
+	 // summary:
+	 //		converts style value to pixels on IE or return a numeric value.
+	 // node: DOMNode
+	 // value: String
+	 // returns: Number
+	 };
+	 =====*/
 
 	// FIXME: there opacity quirks on FF that we haven't ported over. Hrm.
 
@@ -153,9 +157,9 @@ define(["./sniff", "./dom"], function(has, dom){
 				return 1; // Number
 			}
 		} :
-		function(node){
-			return getComputedStyle(node).opacity;
-		};
+			function(node){
+				return getComputedStyle(node).opacity;
+			};
 
 	var _setOpacity =
 		has("ie") < 9 || (has("ie") < 10 && has("quirks")) ? function(/*DomNode*/ node, /*Number*/ opacity){
@@ -191,9 +195,9 @@ define(["./sniff", "./dom"], function(has, dom){
 			}
 			return opacity;
 		} :
-		function(node, opacity){
-			return node.style.opacity = opacity;
-		};
+			function(node, opacity){
+				return node.style.opacity = opacity;
+			};
 
 	var _pixelNamesCache = {
 		left: true, top: true
@@ -202,19 +206,20 @@ define(["./sniff", "./dom"], function(has, dom){
 	function _toStyleValue(node, type, value){
 		//TODO: should we really be doing string case conversion here? Should we cache it? Need to profile!
 		type = type.toLowerCase();
-		if(has("ie")){
-			if(value == "auto"){
-				if(type == "height"){ return node.offsetHeight; }
-				if(type == "width"){ return node.offsetWidth; }
-			}
-			if(type == "fontweight"){
-				switch(value){
-					case 700: return "bold";
-					case 400:
-					default: return "normal";
-				}
+
+		// Adjustments for IE and Edge
+		if(value == "auto"){
+			if(type == "height"){ return node.offsetHeight; }
+			if(type == "width"){ return node.offsetWidth; }
+		}
+		if(type == "fontweight"){
+			switch(value){
+				case 700: return "bold";
+				case 400:
+				default: return "normal";
 			}
 		}
+
 		if(!(type in _pixelNamesCache)){
 			_pixelNamesCache[type] = _pixelRegExp.test(type);
 		}

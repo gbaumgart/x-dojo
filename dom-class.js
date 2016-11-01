@@ -117,7 +117,7 @@ define(["./_base/lang", "./_base/array", "./dom"], function(lang, array, dom){
 			//		A string class name to look for.
 			// example:
 			//		Do something if a node with id="someNode" has class="aSillyClassName" present
-			//	|	if(dojo.hasClass("someNode","aSillyClassName")){ ... }
+			//	|	if(domClass.contains("someNode","aSillyClassName")){ ... }
 
 			return ((" " + dom.byId(node)[className] + " ").indexOf(" " + classStr + " ") >= 0); // Boolean
 		},
@@ -158,6 +158,10 @@ define(["./_base/lang", "./_base/array", "./dom"], function(lang, array, dom){
 			//	|		query("ul > li").addClass("firstLevel");
 			//	|	});
 
+            if(!node){
+                //console.error('dom class::add failed');
+                return;
+            }
 			node = dom.byId(node);
 			classStr = str2array(classStr);
 			var cls = node[className], oldLen;
@@ -218,6 +222,10 @@ define(["./_base/lang", "./_base/array", "./dom"], function(lang, array, dom){
 			//	|	});
 
 			node = dom.byId(node);
+            if(!node){
+                console.error('dom class remove failed');
+                return;
+            }
 			var cls;
 			if(classStr !== undefined){
 				classStr = str2array(classStr);

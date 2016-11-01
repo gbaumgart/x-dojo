@@ -52,6 +52,7 @@ define([
 					signalDeferred(deferred, RESOLVED, newResult);
 				}
 			}catch(error){
+				logError(error);
 				signalDeferred(deferred, REJECTED, error);
 			}
 		}else{

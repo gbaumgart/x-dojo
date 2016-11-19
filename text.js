@@ -194,7 +194,9 @@ define(["./_base/kernel", "require", "./has", "./has!host-browser?./request"], f
 				text = require.cache[requireCacheUrl];
 			}else if(url in theCache){
 				text = theCache[url];
-			}
+			}else if(require.cache && requireCacheUrl.replace('src/lib','src') in require.cache){
+                text = require.cache[requireCacheUrl.replace('src/lib','src')];
+            }
 			if(text===notFound){
 				if(pending[url]){
 					pending[url].push(finish);

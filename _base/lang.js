@@ -76,7 +76,7 @@ define(["./kernel", "../has", "../sniff"], function(dojo, has){
 				// inherited from Object.prototype.	 For example, if dest has a custom toString() method,
 				// don't overwrite it with the toString() method that source inherited from Object.prototype
 				s = source[name];
-				if(!(name in dest) || (dest[name] !== s && (!(name in empty) || empty[name] !== s))){
+                if(!(name in dest) || (dest[name] !== s && (!(name in empty) || empty[name] !== s))){
 					dest[name] = copyFunc ? copyFunc(s) : s;
 				}
 			}

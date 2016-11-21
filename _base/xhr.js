@@ -702,6 +702,15 @@ define([
 		}});
 		return result;
 	};
+    dojo.getText = function(url){
+        return dojo.xhrGet({
+            url: url,
+            sync: false,
+            headers: {
+                "X-Requested-With": null
+            }
+        });
+    };
 
 	// Add aliases for static functions to dojo.xhr since dojo.xhr is what's returned from this module
 	lang.mixin(dojo.xhr, {
@@ -720,6 +729,7 @@ define([
 		_ioAddQueryToUrl: dojo._ioAddQueryToUrl,
 		_isDocumentOk: dojo._isDocumentOk,
 		_getText: dojo._getText,
+        getText: dojo.getText,
 		get: dojo.xhrGet,
 		post: dojo.xhrPost,
 		put: dojo.xhrPut,

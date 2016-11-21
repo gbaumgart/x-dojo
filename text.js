@@ -195,10 +195,14 @@ define(["./_base/kernel", "require", "./has", "./has!host-browser?./request"], f
 			}else if(url in theCache){
 				text = theCache[url];
 			}else if(require.cache && requireCacheUrl.replace('src/lib','src') in require.cache){
+			    //support pre-build layers in full debug config
                 text = require.cache[requireCacheUrl.replace('src/lib','src')];
+            }else if(require.cache && requireCacheUrl.replace('src/build','src') in require.cache){
+                //support layers in full release config
+                text = require.cache[requireCacheUrl.replace('src/build','src')];
             }
 			if(text===notFound){
-				if(pending[url]){
+			    if(pending[url]){
 					pending[url].push(finish);
 				}else{
 					var pendingList = pending[url] = [finish];

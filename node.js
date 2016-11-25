@@ -16,7 +16,9 @@ define([
 			nodeRequire = _window.nodeRequire;
 			module = nodeRequire("module");
 		} else {
-			console.warn("Cannot get Electron/Node.js require, will noob to empty module dojo/noob");
+		    if(has('debug')) {
+                console.warn("Cannot get Electron/Node.js require, will noob to empty module dojo/noob");
+            }
 		}
 	}
 	return {

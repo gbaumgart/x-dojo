@@ -1,3 +1,4 @@
+/** module:dojo/Deferred **/
 define([
 	"./has",
 	"./_base/lang",
@@ -87,7 +88,11 @@ define([
 			}
 		}
 	};
-
+    /**
+     * @class module:dojo/Deferred
+     * @param canceler {function}
+     * @constructor
+     */
 	var Deferred = function(canceler){
 		// summary:
 		//		Creates a new deferred. This API is preferred over

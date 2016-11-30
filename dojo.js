@@ -790,6 +790,8 @@
 					return module.result;
 				}
 				throw makeError("undefinedModule", a1);
+                console.error('cant get module '+a1);
+                return;
 			}
 			if(!isArray(a1)){
 				// a1 is a configuration

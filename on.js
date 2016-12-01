@@ -149,6 +149,7 @@ define(["./has!dom-addeventlistener?:./aspect", "./_base/kernel", "./sniff"], fu
 			target.addEventListener(adjustedType, listener, capture);
 			// create and return the signal
 			return {
+			    type:type,
 				remove: function(){
 					target.removeEventListener(adjustedType, listener, capture);
 				}

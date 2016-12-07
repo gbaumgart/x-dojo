@@ -11,66 +11,55 @@ define([
     "../topic",
     "./common",
     "./Selector",
-    "./Manager"
+    "./Manager",
+    "xide/mixins/EventedMixin"
 ], function (array, declare, kernel, lang, domClass, domGeom, mouse, ready, topic,
-             dnd, Selector, Manager) {
+             dnd, Selector, Manager,EventedMixin) {
     /*
      Container property:
      "Horizontal"- if this is the horizontal container
      Source states:
      ""			- normal state
-     "Moved"		- this source is being moved
-     "Copied"	- this source is being copied
+     MOVED		- this source is being moved
+     COPIED	- this source is being copied
      Target states:
      ""			- normal state
-     "Disabled"	- the target cannot accept an avatar
+     DISABLED	- the target cannot accept an avatar
      Target anchor state:
      ""			- item is not selected
-     "Before"	- insert point is before the anchor
-     "After"		- insert point is after the anchor
+     BEFORE	- insert point is before the anchor
+     AFTER		- insert point is after the anchor
+     */
+    var DISABLED = 'Disabled',
+        BEFORE = 'Before',
+        AFTER = 'After',
+        SOURCE = 'Source',
+        TARGET = 'TARGET',
+        COPIED = 'Copied',
+        MOVED = 'MOVED';
+
+    /**
+     * A dict of parameters for DnD Source configuration. Note that any property on Source elements may be configured,
+     * but this is the short-list
+     * @typedef {Object} {module:dojo/dnd/SourceArguments}
+     * @property {boolean} isSource .Can be used as a DnD source. Defaults to true.
+     * @property {string[]} isSource. List of accepted types (text strings) for a target; defaults to ["text"]
+     * @property {boolean} autoSync. If true refreshes the node list on every operation; false by default.
+     * @property {boolean} copyOnly. Copy items, if true, use a state of Ctrl key otherwise, see selfCopy and selfAccept for more details.
+     * @property {number} delay. The move delay in pixels before detecting a drag; 0 by default.
+     * @property {boolean} horizontal. A horizontal container, if true, vertical otherwise or when omitted.
+     * @property {boolean} selfCopy. Copy items by default when dropping on itself, false by default, works only if copyOnly is true.
+     * @property {boolean} selfAccept. Accept its own items when copyOnly is true, true by default, works only if copyOnly is true.
+     * @property {boolean} withHandles. Allows dragging only by handles, false by default.
+     * @property {boolean} generateText. Generate text node for drag and drop, true by default.
      */
 
-    /*=====
-     var __SourceArgs = {
-     // summary:
-     //		a dict of parameters for DnD Source configuration. Note that any
-     //		property on Source elements may be configured, but this is the
-     //		short-list
-     // isSource: Boolean?
-     //		can be used as a DnD source. Defaults to true.
-     // accept: Array?
-     //		list of accepted types (text strings) for a target; defaults to
-     //		["text"]
-     // autoSync: Boolean
-     //		if true refreshes the node list on every operation; false by default
-     // copyOnly: Boolean?
-     //		copy items, if true, use a state of Ctrl key otherwise,
-     //		see selfCopy and selfAccept for more details
-     // delay: Number
-     //		the move delay in pixels before detecting a drag; 0 by default
-     // horizontal: Boolean?
-     //		a horizontal container, if true, vertical otherwise or when omitted
-     // selfCopy: Boolean?
-     //		copy items by default when dropping on itself,
-     //		false by default, works only if copyOnly is true
-     // selfAccept: Boolean?
-     //		accept its own items when copyOnly is true,
-     //		true by default, works only if copyOnly is true
-     // withHandles: Boolean?
-     //		allows dragging only by handles, false by default
-     // generateText: Boolean?
-     //		generate text node for drag and drop, true by default
-     };
-     =====*/
     /**
+     * A Source object, which can be used as a DnD source, or a DnD target
      * @class module:dojo/dnd/Source
      * @extends module:dojo/dnd/Selector
      */
-    var Source = declare("dojo.dnd.Source", Selector, {
-        // summary:
-        //		a Source object, which can be used as a DnD source, or a DnD target
-
-        // object attributes (for markup)
+    var Source = declare("dojo.dnd.Source", [Selector,EventedMixin], {
         isSource: true,
         horizontal: false,
         copyOnly: false,
@@ -85,18 +74,12 @@ define([
         center:false,
         isCenter:function(){},
         /**
-         *
-         * @param node
-         * @param params
+         * A constructor of the Source
+         * @param node {HTMLElement|String} Node or node's id to build the source on.
+         * @param params {module:dojo/dnd/SourceArguments} Any property of this class may be configured via the params 
+         * object which is mixed-in to the `dojo/dnd/Source` instance.
          */
-        constructor: function (/*DOMNode|String*/ node, /*__SourceArgs?*/ params) {
-            // summary:
-            //		a constructor of the Source
-            // node:
-            //		node or node's id to build the source on
-            // params:
-            //		any property of this class may be configured via the params
-            //		object which is mixed-in to the `dojo/dnd/Source` instance
+        constructor: function (node,params) {
             lang.mixin(this, lang.mixin({}, params));
             var type = this.accept;
             if (type.length) {
@@ -111,10 +94,12 @@ define([
             this.targetAnchor = null;
             this.targetBox = null;
             this.before = true;
+            this.center = true;
             this._lastX = 0;
             this._lastY = 0;
             // states
             this.sourceState = "";
+
             if (this.isSource) {
                 domClass.add(this.node, "dojoDndSource");
             }
@@ -126,26 +111,18 @@ define([
                 domClass.add(this.node, "dojoDndHorizontal");
             }
             // set up events
-            this.topics = [
-                topic.subscribe("/dnd/source/over", lang.hitch(this, "onDndSourceOver")),
-                topic.subscribe("/dnd/start", lang.hitch(this, "onDndStart")),
-                topic.subscribe("/dnd/drop", lang.hitch(this, "onDndDrop")),
-                topic.subscribe("/dnd/cancel", lang.hitch(this, "onDndCancel"))
-            ];
+            this.subscribe("/dnd/source/over",this.onDndSourceOver);
+            this.subscribe("/dnd/start",this.onDndStart);
+            this.subscribe("/dnd/drop", this.onDndDrop);
+            this.subscribe("/dnd/cancel",this.onDndCancel);
         },
         /**
-         *
-         * @param source {module:dojo/dnd/Source}
-         * @param nodes {HTMLElement[]=}
+         * Checks if the target can accept nodes from this source.
+         * @param source {module:dojo/dnd/Source} The source which provides items.
+         * @param nodes {HTMLElement[]=} the list of transferred items.
          * @returns {boolean}
          */
         checkAcceptance: function (source, nodes) {
-            // summary:
-            //		checks if the target can accept nodes from this source
-            // source: Object
-            //		the source which provides items
-            // nodes: Array
-            //		the list of transferred items
             if (this == source) {
                 return !this.copyOnly || this.selfAccept;
             }
@@ -190,21 +167,15 @@ define([
             return false;	// Boolean
         },
         destroy: function () {
-            // summary:
-            //		prepares the object to be garbage-collected
             Source.superclass.destroy.call(this);
-            array.forEach(this.topics, function (t) {
-                t.remove();
-            });
             this.targetAnchor = null;
         },
-        // mouse event processors
+        /**
+         * Event processor for onmousemove.
+         * @param e {MouseEvent}
+         */
         onMouseMove: function (e) {
-            // summary:
-            //		event processor for onmousemove
-            // e: Event
-            //		mouse event
-            if (this.isDragging && this.targetState == "Disabled") {
+            if (this.isDragging && this.targetState == DISABLED) {
                 return;
             }
             Source.superclass.onMouseMove.call(this, e);
@@ -263,14 +234,10 @@ define([
             }
         },
         /**
-         *
-         * @param source {module:dojo/dnd/Source}
+         * Topic event processor for /dnd/source/over, called when detected a current source.
+         * @param source {module:dojo/dnd/Source} The source which has the mouse over it.
          */
         onDndSourceOver: function (source) {
-            // summary:
-            //		topic event processor for /dnd/source/over, called when detected a current source
-            // source: Object
-            //		the source which has the mouse over it
             if (this !== source) {
                 this.mouseDown = false;
                 if (this.targetAnchor) {
@@ -278,64 +245,47 @@ define([
                 }
             } else if (this.isDragging) {
                 var m = Manager.manager();
-                m.canDrop(this.targetState != "Disabled" && (!this.current || m.source != this || !(this.current.id in this.selection)));
+                m.canDrop(this.targetState != DISABLED && (!this.current || m.source != this || !(this.current.id in this.selection)));
             }
         },
         /**
-         *
-         * @param source {module:dojo/dnd/Source}
-         * @param nodes {HTMLElement[]}
-         * @param copy {boolean}
+         * topic event processor for /dnd/start, called to initiate the DnD operation
+         * @param source {module:dojo/dnd/Source} the source which provides items
+         * @param nodes {HTMLElement[]} the list of transferred items
+         * @param copy {boolean} if true, move items otherwise
          */
         onDndStart: function (source, nodes, copy) {
-            // summary:
-            //		topic event processor for /dnd/start, called to initiate the DnD operation
-            // source: Object
-            //		the source which provides items
-            // nodes: Array
-            //		the list of transferred items
-            // copy: Boolean
-            //		copy items, if true, move items otherwise
             if (this.autoSync) {
                 this.sync();
             }
             if (this.isSource) {
-                this._changeState("Source", this == source ? (copy ? "Copied" : "Moved") : "");
+                this._changeState(SOURCE, this == source ? (copy ? COPIED : MOVED) : "");
             }
             var accepted = this.accept && this.checkAcceptance(source, nodes);
-            this._changeState("Target", accepted ? "" : "Disabled");
+            this._changeState(TARGET, accepted ? "" : DISABLED);
             if (this == source) {
                 Manager.manager().overSource(this);
             }
             this.isDragging = true;
         },
         /**
-         *
-         * @param source {module:dojo/dnd/Source}
-         * @param nodes {HTMLElement[]}
-         * @param copy {boolean}
-         * @param target
+         * Topic event processor for /dnd/drop, called to finish the DnD operation
+         * @param source {module:dojo/dnd/Source} The source which provides items.
+         * @param nodes {HTMLElement[]} The list of transferred items.
+         * @param copy {boolean} Copy items, if true, move items otherwise.
+         * @param target {module:dojo/dnd/Target} The target which accepts items.
          */
         onDndDrop: function (source, nodes, copy, target) {
-            // summary:
-            //		topic event processor for /dnd/drop, called to finish the DnD operation
-            // source: Object
-            //		the source which provides items
-            // nodes: Array
-            //		the list of transferred items
-            // copy: Boolean
-            //		copy items, if true, move items otherwise
-            // target: Object
-            //		the target which accepts items
             if (this == target) {
                 // this one is for us => move nodes!
                 this.onDrop(source, nodes, copy);
             }
             this.onDndCancel();
         },
+        /**
+         * Topic event processor for /dnd/cancel, called to cancel the DnD operation
+         */
         onDndCancel: function () {
-            // summary:
-            //		topic event processor for /dnd/cancel, called to cancel the DnD operation
             if (this.targetAnchor) {
                 this._unmarkTargetAnchor();
                 this.targetAnchor = null;
@@ -343,24 +293,16 @@ define([
             this.before = true;
             this.isDragging = false;
             this.mouseDown = false;
-            this._changeState("Source", "");
-            this._changeState("Target", "");
+            this._changeState(SOURCE, "");
+            this._changeState(TARGET, "");
         },
         /**
-         *
-         * @param source {module:dojo/dnd/Source}
-         * @param nodes {HTMLElement[]}
+         * Called only on the current target, when drop is performed.
+         * @param source {module:dojo/dnd/Source} The source which provides items.
+         * @param nodes {HTMLElement[]} The list of transferred items. Copy items, if true, move items otherwise.
          * @param copy {boolean}
          */
         onDrop: function (source, nodes, copy) {
-            // summary:
-            //		called only on the current target, when drop is performed
-            // source: Object
-            //		the source which provides items
-            // nodes: Array
-            //		the list of transferred items
-            // copy: Boolean
-            //		copy items, if true, move items otherwise
             if (this != source) {
                 this.onDropExternal(source, nodes, copy);
             } else {
@@ -368,21 +310,12 @@ define([
             }
         },
         /**
-         * @param source {module:dojo/dnd/Source}
-         * @param nodes {HTMLElement[]}
-         * @param copy {boolean}
+         * Called only on the current target, when drop is performed from an external source.
+         * @param source {module:dojo/dnd/Source} The source which provides items.
+         * @param nodes {HTMLElement[]} The list of transferred items.
+         * @param copy {boolean} Copy items, if true, move items otherwise.
          */
         onDropExternal: function (source, nodes, copy) {
-            // summary:
-            //		called only on the current target, when drop is performed
-            //		from an external source
-            // source: Object
-            //		the source which provides items
-            // nodes: Array
-            //		the list of transferred items
-            // copy: Boolean
-            //		copy items, if true, move items otherwise
-
             var oldCreator = this._normalizedCreator;
             // transferring nodes from the source to the target
             if (this.creator) {
@@ -420,18 +353,11 @@ define([
             this._normalizedCreator = oldCreator;
         },
         /**
-         * @param nodes {HTMLElement[]}
-         * @param copy {boolean}
+         * Called only on the current target, when drop is performed from the same target/source.
+         * @param nodes {HTMLElement[]} The list of transferred items.
+         * @param copy {boolean} Copy items, if true, move items otherwise
          */
         onDropInternal: function (nodes, copy) {
-            // summary:
-            //		called only on the current target, when drop is performed
-            //		from the same target/source
-            // nodes: Array
-            //		the list of transferred items
-            // copy: Boolean
-            //		copy items, if true, move items otherwise
-
             var oldCreator = this._normalizedCreator;
             // transferring nodes within the single source
             if (this.current && this.current.id in this.selection) {
@@ -446,7 +372,7 @@ define([
                     };
                 } else {
                     // clone nodes
-                    this._normalizedCreator = function (node/*=====, hint =====*/) {
+                    this._normalizedCreator = function (node) {
                         var t = this.getItem(node.id);
                         var n = node.cloneNode(true);
                         n.id = dnd.getUniqueId();
@@ -459,7 +385,7 @@ define([
                     // do nothing
                     return;
                 }
-                this._normalizedCreator = function (node /*=====, hint =====*/) {
+                this._normalizedCreator = function (node) {
                     var t = this.getItem(node.id);
                     return {node: node, data: t.data, type: t.type};
                 };
@@ -485,7 +411,7 @@ define([
             //		this function is called once, when mouse is over our container
             Source.superclass.onOverEvent.call(this);
             Manager.manager().overSource(this);
-            if (this.isDragging && this.targetState != "Disabled") {
+            if (this.isDragging && this.targetState != DISABLED) {
                 this.onDraggingOver();
             }
         },
@@ -494,7 +420,7 @@ define([
             //		this function is called once, when mouse is out of our container
             Source.superclass.onOutEvent.call(this);
             Manager.manager().outSource(this);
-            if (this.isDragging && this.targetState != "Disabled") {
+            if (this.isDragging && this.targetState != DISABLED) {
                 this.onDraggingOut();
             }
         },
@@ -507,13 +433,13 @@ define([
                 return;
             }
             if (this.targetAnchor) {
-                this._removeItemClass(this.targetAnchor, this.before ? "Before" : "After");
+                this._removeItemClass(this.targetAnchor, this.before ? BEFORE : AFTER);
             }
             this.targetAnchor = this.current;
             this.targetBox = null;
             this.before = before;
             if (this.targetAnchor) {
-                this._addItemClass(this.targetAnchor, this.before ? "Before" : "After");
+                this._addItemClass(this.targetAnchor, this.before ? BEFORE : AFTER);
             }
         },
         _unmarkTargetAnchor: function () {
@@ -522,7 +448,7 @@ define([
             if (!this.targetAnchor) {
                 return;
             }
-            this._removeItemClass(this.targetAnchor, this.before ? "Before" : "After");
+            this._removeItemClass(this.targetAnchor, this.before ? BEFORE : AFTER);
             this.targetAnchor = null;
             this.targetBox = null;
             this.before = true;
@@ -530,7 +456,7 @@ define([
         _markDndStatus: function (copy) {
             // summary:
             //		changes source's state based on "copy" status
-            this._changeState("Source", copy ? "Copied" : "Moved");
+            this._changeState(SOURCE, copy ? COPIED : MOVED);
         },
         _legalMouseDown: function (e) {
             // summary:

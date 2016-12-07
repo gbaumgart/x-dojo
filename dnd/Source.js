@@ -82,6 +82,7 @@ define([
         delay: 0, // pixels
         accept: ["text"],
         generateText: true,
+        center:false,
         isCenter:function(){},
         /**
          *

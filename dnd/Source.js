@@ -82,6 +82,7 @@ define([
         delay: 0, // pixels
         accept: ["text"],
         generateText: true,
+        isCenter:function(){},
         /**
          *
          * @param node
@@ -217,8 +218,9 @@ define([
                 }
             }
             if (this.isDragging) {
-                // calculate before/after
+                // calculate before/center/after
                 var before = false;
+                var center = false;
                 if (this.current) {
                     if (!this.targetBox || this.targetAnchor != this.current) {
                         this.targetBox = domGeom.position(this.current, true);
@@ -229,9 +231,10 @@ define([
                     } else {
                         before = (e.pageY - this.targetBox.y) < (this.targetBox.h / 2);
                     }
+                    center = this.isCenter(e);
                 }
-                if (this.current != this.targetAnchor || before != this.before) {
-                    this._markTargetAnchor(before);
+                if (this.current != this.targetAnchor || before !== this.before || center !== this.center) {
+                    this._markTargetAnchor(before, center, e);
                     m.canDrop(!this.current || m.source != this || !(this.current.id in this.selection));
                 }
             }

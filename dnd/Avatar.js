@@ -10,13 +10,10 @@ define([
     "../query"
 ], function (declare, win, dom, domAttr, domClass, domConstruct, has, query) {
     /**
+     * Object that represents transferred DnD items visually
      * @class module:dojo/dnd/Avatar
      */
     return declare("dojo.dnd.Avatar", null, {
-        // summary:
-        //		Object that represents transferred DnD items visually
-        // manager: Object
-        //		a DnD manager object
         /**
          * @param manager {module:dojo/dnd/Manager}
          */
@@ -24,12 +21,10 @@ define([
             this.manager = manager;
             this.construct();
         },
-        // methods
+        /**
+         * It is separate so it can be (dynamically) overwritten in case of need
+         */
         construct: function () {
-            // summary:
-            //		constructor function;
-            //		it is separate so it can be (dynamically) overwritten in case of need
-
             var a = domConstruct.create("table", {
                     "class": "dojoDndAvatar",
                     style: {
@@ -85,39 +80,31 @@ define([
             }
             this.node = a;
         },
+        /**
+         *  Destructor for the avatar; called to remove all references so it can be garbage-collected
+         */
         destroy: function () {
-            // summary:
-            //		destructor for the avatar; called to remove all references so it can be garbage-collected
             domConstruct.destroy(this.node);
             this.node = false;
         },
+        /**
+         * updates the avatar to reflect the current DnD state
+         */
         update: function () {
-            // summary:
-            //		updates the avatar to reflect the current DnD state
             domClass.toggle(this.node, "dojoDndAvatarCanDrop", this.manager.canDropFlag);
-            if (has("highcontrast")) {
-                var icon = dom.byId("a11yIcon");
-                var text = '+';   // assume canDrop && copy
-                if (this.manager.canDropFlag && !this.manager.copy) {
-                    text = '< '; // canDrop && move
-                } else if (!this.manager.canDropFlag && !this.manager.copy) {
-                    text = "o"; //!canDrop && move
-                } else if (!this.manager.canDropFlag) {
-                    text = 'x';  // !canDrop && copy
-                }
-                icon.innerHTML = text;
-            }
             // replace text
             query(("tr.dojoDndAvatarHeader td span" + (has("highcontrast") ? " span" : "")), this.node).forEach(
                 function (node) {
                     node.innerHTML = this.manager.source.generateText ? this._generateText() : "";
                 }, this);
         },
+        /**
+         * Generates a proper text to reflect copying or moving of items
+         * @returns {string}
+         * @private
+         */
         _generateText: function () {
-            // summary:
-            //		generates a proper text to reflect copying or moving of items
             return this.manager.nodes.length.toString();
         }
     });
-
 });

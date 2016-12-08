@@ -12,9 +12,10 @@ define([
     "./common",
     "./Selector",
     "./Manager",
-    "xide/mixins/EventedMixin"
+    "xide/mixins/EventedMixin",
+    "xide/utils"
 ], function (array, declare, kernel, lang, domClass, domGeom, mouse, ready, topic,
-             dnd, Selector, Manager,EventedMixin) {
+             dnd, Selector, Manager,EventedMixin,utils) {
     /*
      Container property:
      "Horizontal"- if this is the horizontal container
@@ -34,9 +35,9 @@ define([
         BEFORE = 'Before',
         AFTER = 'After',
         SOURCE = 'Source',
-        TARGET = 'TARGET',
+        TARGET = 'Target',
         COPIED = 'Copied',
-        MOVED = 'MOVED';
+        MOVED = 'Moved';
 
     /**
      * A dict of parameters for DnD Source configuration. Note that any property on Source elements may be configured,
@@ -72,6 +73,7 @@ define([
         accept: ["text"],
         generateText: true,
         center:false,
+        //id:utils.createUUID(),
         isCenter:function(){},
         /**
          * A constructor of the Source
@@ -94,12 +96,9 @@ define([
             this.targetAnchor = null;
             this.targetBox = null;
             this.before = true;
-            this.center = true;
             this._lastX = 0;
             this._lastY = 0;
-            // states
             this.sourceState = "";
-
             if (this.isSource) {
                 domClass.add(this.node, "dojoDndSource");
             }
@@ -110,7 +109,6 @@ define([
             if (this.horizontal) {
                 domClass.add(this.node, "dojoDndHorizontal");
             }
-            // set up events
             this.subscribe("/dnd/source/over",this.onDndSourceOver);
             this.subscribe("/dnd/start",this.onDndStart);
             this.subscribe("/dnd/drop", this.onDndDrop);
@@ -137,20 +135,18 @@ define([
                     }
                 }
                 if (!flag) {
-                    return false;	// Boolean
+                    return false;
                 }
             }
-            return true;	// Boolean
+            return true;
         },
+        /**
+         * Returns true if we need to copy items, false to move. It is separated to be overwritten dynamically, if needed.
+         * @param keyPressed {boolean} the "copy" key was pressed.
+         * @param self {boolean=false} Optional flag that means that we are about to drop on itself.
+         * @returns boolean
+         */
         copyState: function (keyPressed, self) {
-            // summary:
-            //		Returns true if we need to copy items, false to move.
-            //		It is separated to be overwritten dynamically, if needed.
-            // keyPressed: Boolean
-            //		the "copy" key was pressed
-            // self: Boolean?
-            //		optional flag that means that we are about to drop on itself
-
             if (keyPressed) {
                 return true;
             }
@@ -164,7 +160,7 @@ define([
             } else {
                 return this.copyOnly;
             }
-            return false;	// Boolean
+            return false;
         },
         destroy: function () {
             Source.superclass.destroy.call(this);
@@ -204,8 +200,9 @@ define([
                         before = (e.pageY - this.targetBox.y) < (this.targetBox.h / 2);
                     }
                     center = this.isCenter(e);
+
                 }
-                if (this.current != this.targetAnchor || before !== this.before || center !== this.center) {
+                if (this.current != this.targetAnchor || before != this.before || center != this.center) {
                     this._markTargetAnchor(before, center, e);
                     m.canDrop(!this.current || m.source != this || !(this.current.id in this.selection));
                 }
@@ -327,7 +324,7 @@ define([
                 // we have no creator defined => move/clone nodes
                 if (copy) {
                     // clone nodes
-                    this._normalizedCreator = function (node /*=====, hint =====*/) {
+                    this._normalizedCreator = function (node) {
                         var t = source.getItem(node.id);
                         var n = node.cloneNode(true);
                         n.id = dnd.getUniqueId();
@@ -335,7 +332,7 @@ define([
                     };
                 } else {
                     // move nodes
-                    this._normalizedCreator = function (node /*=====, hint =====*/) {
+                    this._normalizedCreator = function (node) {
                         var t = source.getItem(node.id);
                         source.delItem(node.id);
                         return {node: node, data: t.data, type: t.type};
@@ -429,6 +426,7 @@ define([
             //		assigns a class to the current target anchor based on "before" status
             // before: Boolean
             //		insert before, if true, after otherwise
+            console.log('_markTargetAnchor');
             if (this.current == this.targetAnchor && this.before == before) {
                 return;
             }
@@ -472,7 +470,6 @@ define([
             if (!this.withHandles) {
                 return true;
             }
-
             // check for handles
             for (var node = e.target; node && node !== this.node; node = node.parentNode) {
                 if (domClass.contains(node, "dojoDndHandle")) {

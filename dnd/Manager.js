@@ -13,13 +13,25 @@ define([
     "../touch",
     "./common",
     "./autoscroll",
-    "./Avatar"
-], function (array, declare, lang, win, domClass, Evented, has, keys, on, topic, touch, dnd, autoscroll, Avatar) {
+    "./Avatar",
+    "xide/mixins/EventedMixin",
+    "xide/lodash",
+    "xide/types/Types"
+], function (array, declare, lang, win, domClass, Evented, has, keys, on, topic, touch, dnd, autoscroll, Avatar,EventedMixin,_,types) {
+    
+    var EVENTS = types.EVENTS;
+    
+    
+    function stopEvent(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
     /**
      * @class module:dojo/dnd/Manager
      * @extends module:dojo/Evented
      */
-    var Manager = declare("dojo.dnd.Manager", [Evented], {
+    var Manager = declare("dojo.dnd.Manager", [Evented,EventedMixin], {
         /**
          * @type {module:dojo/dnd/Avatar}
          */
@@ -36,8 +48,6 @@ define([
          * @type {boolean}
          */
         copy:null,
-        // summary:
-        //		the manager of DnD operations (usually a singleton)
         constructor: function () {
             this.avatar = null;
             this.source = null;
@@ -47,75 +57,53 @@ define([
             this.canDropFlag = false;
             this.events = [];
         },
-
         // avatar's offset from the mouse
         OFFSET_X: has("touch") ? 0 : 16,
         OFFSET_Y: has("touch") ? -64 : 16,
         /**
-         * @param source {module:dojo/dnd/Source}
+         * Called when a source detected a mouse-over condition.
+         * @param source {module:dojo/dnd/Source} The reporter.
          */
         overSource: function (source) {
-            // summary:
-            //		called when a source detected a mouse-over condition
-            // source: Object
-            //		the reporter
             if (this.avatar) {
                 this.target = (source && source.targetState != "Disabled") ? source : null;
                 this.canDropFlag = Boolean(this.target);
                 this.avatar.update();
             }
-            topic.publish("/dnd/source/over", source);
+            topic.publish(EVENTS.ON_DND_SOURCE_OVER, source);
         },
         /**
-         * @param source {module:dojo/dnd/Source}
+         * Called when a source detected a mouse-out condition.
+         * @param source {module:dojo/dnd/Source} The reporter.
          */
         outSource: function (source) {
-            // summary:
-            //		called when a source detected a mouse-out condition
-            // source: Object
-            //		the reporter
             if (this.avatar) {
                 if (this.target == source) {
                     this.target = null;
                     this.canDropFlag = false;
                     this.avatar.update();
-                    topic.publish("/dnd/source/over", null);
+                    topic.publish(EVENTS.ON_DND_SOURCE_OVER, null);
                 }
             } else {
-                topic.publish("/dnd/source/over", null);
+                topic.publish(EVENTS.ON_DND_SOURCE_OVER, null);
             }
         },
         /**
-         *
-         * @param source {module:dojo/dnd/Source}
-         * @param nodes {HTMLElement[]}
-         * @param copy {boolean}
+         * Called to initiate the DnD operation
+         * @param source {module:dojo/dnd/Source} The source which provides items.
+         * @param nodes {HTMLElement[]} The list of transferred items.
+         * @param copy {boolean} Copy items, if true, move items otherwise.
          */
         startDrag: function (source, nodes, copy) {
-            // summary:
-            //		called to initiate the DnD operation
-            // source: Object
-            //		the source which provides items
-            // nodes: Array
-            //		the list of transferred items
-            // copy: Boolean
-            //		copy items, if true, move items otherwise
-
             // Tell autoscroll that a drag is starting
             autoscroll.autoScrollStart(win.doc);
-
             this.source = source;
             this.nodes = nodes;
             this.copy = Boolean(copy); // normalizing to true boolean
             this.avatar = this.makeAvatar();
             win.body().appendChild(this.avatar.node);
             topic.publish("/dnd/start", source, nodes, this.copy);
-
-            function stopEvent(e) {
-                e.preventDefault();
-                e.stopPropagation();
-            }
-
+            
             this.events = [
                 on(win.doc, touch.move, lang.hitch(this, "onMouseMove")),
                 on(win.doc, touch.release, lang.hitch(this, "onMouseUp")),
@@ -129,22 +117,23 @@ define([
             var c = "dojoDnd" + (copy ? "Copy" : "Move");
             domClass.add(win.body(), c);
         },
+        /**
+         * Called to notify if the current target can accept items.
+         * @param flag {boolean}
+         */
         canDrop: function (flag) {
-            // summary:
-            //		called to notify if the current target can accept items
             var canDropFlag = Boolean(this.target && flag);
             if (this.canDropFlag != canDropFlag) {
                 this.canDropFlag = canDropFlag;
                 this.avatar.update();
             }
         },
+        /**
+         * stop the DnD in progress
+         */
         stopDrag: function () {
-            // summary:
-            //		stop the DnD in progress
             domClass.remove(win.body(), ["dojoDndCopy", "dojoDndMove"]);
-            array.forEach(this.events, function (handle) {
-                handle.remove();
-            });
+            _.invoke(this.events,"remove");
             this.events = [];
             this.avatar.destroy();
             this.avatar = null;
@@ -152,24 +141,23 @@ define([
             this.nodes = [];
         },
         /**
+         * Makes the avatar; it is separate to be overwritten dynamically, if needed.
          * @returns {module:dojo/dnd/Avatar}
          */
         makeAvatar: function () {
-            // summary:
-            //		makes the avatar; it is separate to be overwritten dynamically, if needed
             return new Avatar(this);
         },
+        /**
+         * Updates the avatar; it is separate to be overwritten dynamically, if needed.
+         */
         updateAvatar: function () {
-            // summary:
-            //		updates the avatar; it is separate to be overwritten dynamically, if needed
             this.avatar.update();
         },
-        // mouse event processors
+        /**
+         * Event processor for onmousemove
+         * @param e {MouseEvent}
+         */
         onMouseMove: function (e) {
-            // summary:
-            //		event processor for onmousemove
-            // e: Event
-            //		mouse event
             var a = this.avatar;
             if (a) {
                 autoscroll.autoScrollNodes(e);
@@ -187,30 +175,27 @@ define([
                 e.preventDefault();
             }
         },
+        /**
+         * Event processor for onmouseup
+         * @param e {MouseEvent}
+         */
         onMouseUp: function (e) {
-            // summary:
-            //		event processor for onmouseup
-            // e: Event
-            //		mouse event
             if (this.avatar) {
                 if (this.target && this.canDropFlag) {
                     var copy = Boolean(this.source.copyState(dnd.getCopyKeyState(e)));
-                    topic.publish("/dnd/drop/before", this.source, this.nodes, copy, this.target, e);
-                    topic.publish("/dnd/drop", this.source, this.nodes, copy, this.target, e);
+                    topic.publish(EVENTS.ON_DND_DROP_BEFORE, this.source, this.nodes, copy, this.target, e);
+                    topic.publish(EVENTS.ON_DND_DROP, this.source, this.nodes, copy, this.target, e);
                 } else {
-                    topic.publish("/dnd/cancel");
+                    topic.publish(EVENTS.ON_DND_CANCEL);
                 }
                 this.stopDrag();
             }
         },
-
-        // keyboard event processors
+        /**
+         * Event processor for onkeydown watching for CTRL for copy/move status, watching for ESCAPE to cancel the drag
+         * @param e {MouseEvent}
+         */
         onKeyDown: function (e) {
-            // summary:
-            //		event processor for onkeydown:
-            //		watching for CTRL for copy/move status, watching for ESCAPE to cancel the drag
-            // e: Event
-            //		keyboard event
             if (this.avatar) {
                 switch (e.keyCode) {
                     case keys.CTRL:
@@ -220,17 +205,17 @@ define([
                         }
                         break;
                     case keys.ESCAPE:
-                        topic.publish("/dnd/cancel");
+                        topic.publish(EVENTS.ON_DND_CANCEL);
                         this.stopDrag();
                         break;
                 }
             }
         },
+        /**
+         * Event processor for onkeyup, watching for CTRL for copy/move status
+         * @param e {KeyboardEvent} keyboard event
+         */
         onKeyUp: function (e) {
-            // summary:
-            //		event processor for onkeyup, watching for CTRL for copy/move status
-            // e: Event
-            //		keyboard event
             if (this.avatar && e.keyCode == keys.CTRL) {
                 var copy = Boolean(this.source.copyState(false));
                 if (this.copy != copy) {
@@ -238,12 +223,12 @@ define([
                 }
             }
         },
-        // utilities
+        /**
+         * Changes the copy status
+         * @param copy {boolean} The copy status
+         * @private
+         */
         _setCopyStatus: function (copy) {
-            // summary:
-            //		changes the copy status
-            // copy: Boolean
-            //		the copy status
             this.copy = copy;
             this.source._markDndStatus(this.copy);
             this.updateAvatar();

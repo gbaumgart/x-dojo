@@ -39,12 +39,6 @@ define([
                 td = domConstruct.create("td", null, tr),
                 k = Math.min(5, this.manager.nodes.length), i = 0;
 
-            if (has("highcontrast")) {
-                domConstruct.create("span", {
-                    id: "a11yIcon",
-                    innerHTML: this.manager.copy ? '+' : "<"
-                }, td)
-            }
             domConstruct.create("span", {
                 innerHTML: source.generateText ? this._generateText() : ""
             }, td);

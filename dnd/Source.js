@@ -72,7 +72,6 @@ define([
         delay: 0, // pixels
         accept: ["text"],
         generateText: true,
-        center:false,
         //id:utils.createUUID(),
         isCenter:function(){},
         /**
@@ -96,6 +95,7 @@ define([
             this.targetAnchor = null;
             this.targetBox = null;
             this.before = true;
+            this.center = false,
             this._lastX = 0;
             this._lastY = 0;
             this.sourceState = "";
@@ -199,9 +199,8 @@ define([
                     } else {
                         before = (e.pageY - this.targetBox.y) < (this.targetBox.h / 2);
                     }
-                    center = this.isCenter(e);
-
                 }
+                center = this.isCenter(e);
                 if (this.current != this.targetAnchor || before != this.before || center != this.center) {
                     this._markTargetAnchor(before, center, e);
                     m.canDrop(!this.current || m.source != this || !(this.current.id in this.selection));
@@ -421,23 +420,38 @@ define([
                 this.onDraggingOut();
             }
         },
-        _markTargetAnchor: function (before) {
-            // summary:
-            //		assigns a class to the current target anchor based on "before" status
-            // before: Boolean
-            //		insert before, if true, after otherwise
-            console.log('_markTargetAnchor');
-            if (this.current == this.targetAnchor && this.before == before) {
+        /**
+         * Assigns a class to the current target anchor based on "before" status
+         * @param before {boolean} insert before, if true, after otherwise
+         * @param center {boolean}
+         * @param canDrop {boolean}
+         * @private
+         */
+        _markTargetAnchor: function (before, center,canDrop) {
+            if (this.current == this.targetAnchor && this.before === before && this.center === center) {
                 return;
             }
+
             if (this.targetAnchor) {
-                this._removeItemClass(this.targetAnchor, this.before ? BEFORE : AFTER);
+                this._removeItemClass(this.targetAnchor, this.before ? "Before" : "After");
+                this._removeItemClass(this.targetAnchor,"Disallow");
+                this._removeItemClass(this.targetAnchor, "Center");
             }
             this.targetAnchor = this.current;
             this.targetBox = null;
             this.before = before;
+            this.center = center;
+            this._before = before;
+            this._center = center;
+
             if (this.targetAnchor) {
-                this._addItemClass(this.targetAnchor, this.before ? BEFORE : AFTER);
+                if (center) {
+                    this._removeItemClass(this.targetAnchor, "Before");
+                    this._removeItemClass(this.targetAnchor, "After");
+                    this._addItemClass(this.targetAnchor, 'Center');
+                }
+                !center && this._addItemClass(this.targetAnchor, this.before ? "Before" : "After");
+                center && canDrop===false && this._addItemClass(this.targetAnchor, "Disallow");
             }
         },
         _unmarkTargetAnchor: function () {
@@ -447,9 +461,12 @@ define([
                 return;
             }
             this._removeItemClass(this.targetAnchor, this.before ? BEFORE : AFTER);
+            this._removeItemClass(this.targetAnchor, 'Center');
+            this._removeItemClass(this.targetAnchor, 'Disallow');
             this.targetAnchor = null;
             this.targetBox = null;
             this.before = true;
+            this.center = true;
         },
         _markDndStatus: function (copy) {
             // summary:

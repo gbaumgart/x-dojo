@@ -782,6 +782,7 @@
 		},
 
 		contextRequire = function(a1, a2, a3, referenceModule, contextRequire){
+	    //console.log('require : ',a1);
 			var module, syntheticMid;
 			if(isString(a1)){
 				// signature is (moduleId)

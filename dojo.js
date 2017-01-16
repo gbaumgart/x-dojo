@@ -790,8 +790,8 @@
 				if(module && module.executed){
 					return module.result;
 				}
-				throw makeError("undefinedModule", a1);
-                console.error('cant get module '+a1);
+				console.error('cant get module '+a1);
+				throw makeError("undefinedModule", a1);                
                 return;
 			}
 			if(!isArray(a1)){
@@ -1583,8 +1583,8 @@
 
 				var mid = module.mid;
 				if(module.injected === arrived){
-					//signal(error, makeError("multipleDefine", module));
-					//return module;
+					signal(error, makeError("multipleDefine", module));
+					return module;
 				}
 				mix(module, {
 					deps: deps,

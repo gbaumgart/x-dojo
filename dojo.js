@@ -1583,8 +1583,9 @@
 
 				var mid = module.mid;
 				if(module.injected === arrived){
-					signal(error, makeError("multipleDefine", module));
-					return module;
+					console.error('multiple define!',module);
+					//signal(error, makeError("multipleDefine", module));
+					//return module;
 				}
 				mix(module, {
 					deps: deps,

@@ -782,8 +782,11 @@
 		},
 
 		contextRequire = function(a1, a2, a3, referenceModule, contextRequire){
-	    //console.log('require : ',a1);
-			var module, syntheticMid;
+	    	var module, syntheticMid;
+			//console.log(a1);
+			if(a1[0]==="maq-metadata-html/html/table/SelectTableAction"){
+				//console.error('sdsdsd');
+			}
 			if(isString(a1)){
 				// signature is (moduleId)
 				module = getModule(a1, referenceModule, true);
@@ -792,7 +795,6 @@
 				}
 				console.error('cant get module '+a1);
 				throw makeError("undefinedModule", a1);                
-                return;
 			}
 			if(!isArray(a1)){
 				// a1 is a configuration

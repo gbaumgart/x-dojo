@@ -1,7 +1,9 @@
 var path = require('path');
 function createDojoConfig(clientRoot,serverRoot,base,packages){
-    dojoConfig = {
-        cwd:__dirname,
+    var dojoConfig = {
+    	libRoot:path.join(clientRoot+'src/lib'),
+		clientRoot:clientRoot,
+        cwd:serverRoot,
         hasCache: {
             "host-node": 1,
             "host-browser":0,
@@ -14,7 +16,7 @@ function createDojoConfig(clientRoot,serverRoot,base,packages){
             "dojo-log-api":0,
             "dojo-dom-ready-api":0,
             "dojo-publish-privates":1,
-            "dojo-config-api":0,
+            "dojo-config-api":1,
             "dojo-sniff":1,
             "dojo-sync-loader":0,
             "dojo-test-sniff":0,
@@ -26,9 +28,9 @@ function createDojoConfig(clientRoot,serverRoot,base,packages){
             'dojo-undef-api': true,
             "debug":true
         },
-        trace: 1,
+        trace: 0,
         async: 0,
-        baseUrl: base || '.',
+        baseUrl: base || serverRoot || '.',
         packages: [
             {
                 name: "dojo",
@@ -98,15 +100,17 @@ function createDojoConfig(clientRoot,serverRoot,base,packages){
                 name: "xdojo",
                 location: clientRoot + path.sep + 'xdojo'
             }
-        ],
-        deps: ['dojo/moduleFetcher']
+        ]
+        //deps: ['dojo/moduleFetcher']
     };
     return dojoConfig;
 }
 
 module.exports = function(clientRoot,serverRoot,packages){
     dojoConfig = createDojoConfig(clientRoot,serverRoot,packages);
-    require("./dojo.js");
-    return amdRequire;
+    require(serverRoot + "/dojo/dojo.js");
+    return global.dojoRequire;
 };
+
+
 

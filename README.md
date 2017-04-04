@@ -15,7 +15,7 @@ You can also use the original Dojo version. I changed only a few things:
 
 ## Installation
 
-    git clone https://github.com/xblox/x-dojo.git
+    git clone https://github.com/gbaumgart/x-dojo.git
 
 ## Usage
 
